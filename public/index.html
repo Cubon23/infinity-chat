@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity Chat Secure Real-Time Messaging</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Real-Time Push Notification Alert Banner -->
+    <div id="notification-banner">
+        <span id="notification-text">System update notice appears here...</span>
+        <button onclick="closeNotification()">×</button>
+    </div>
+
+    <!-- 1. AUTHENTICATION VIEW -->
+    <div id="auth-view">
+        <div class="auth-header">
+            <h1>Infinity Chat</h1>
+            <p id="auth-subtitle">Enter credentials to join the secure lounge</p>
+        </div>
+        <div class="auth-tabs">
+            <button id="tab-login" class="auth-tab active" onclick="switchTab('login')">Sign In</button>
+            <button id="tab-register" class="auth-tab" onclick="switchTab('register')">Register</button>
+        </div>
+        <div class="auth-error" id="auth-error-box"></div>
+        <form class="auth-form" id="auth-form-el" onsubmit="handleAuthSubmit(event)">
+            <div class="form-group">
+                <label for="auth-username">Username</label>
+                <div class="input-wrapper">
+                    <input type="text" id="auth-username" placeholder="Enter username..." required minlength="3" maxlength="15" autocomplete="username">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="auth-password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="auth-password" placeholder="Enter password..." required minlength="6" autocomplete="current-password">
+                </div>
+            </div>
+            <!-- Avatar Selection Grid -->
+            <div class="avatar-selection" id="avatar-selection-wrapper" style="display: none;">
+                <label>Select Avatar</label>
+                <div class="avatar-grid">
+                    <div class="avatar-option selected" onclick="selectAvatar(0)" data-seed="Leo">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Leo" alt="Avatar Leo">
+                    </div>
+                    <div class="avatar-option" onclick="selectAvatar(1)" data-seed="Luna">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Luna" alt="Avatar Luna">
+                    </div>
+                    <div class="avatar-option" onclick="selectAvatar(2)" data-seed="Milo">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Milo" alt="Avatar Milo">
+                    </div>
+                    <div class="avatar-option" onclick="selectAvatar(3)" data-seed="Oliver">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Oliver" alt="Avatar Oliver">
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="auth-btn" id="auth-submit-btn">Sign In</button>
+        </form>
+    </div>
+
+    <!-- 2. CHAT VIEW (PREMIUM DUAL LAYOUT) -->
+    <div id="chat-view">
+        <div class="chat-app-container">
+            <!-- SIDEBAR -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="brand">
+                        <span class="brand-name">Infinity Chat</span>
+                    </div>
+                    <div class="status-dot-wrapper">
+                        <span id="ws-status-dot" class="pulse-dot"></span>
+                    </div>
+                </div>
+                <div class="sidebar-content">
+                    <!-- Profile Card -->
+                    <div>
+                        <div class="section-title">My Profile</div>
+                        <div class="user-profile-widget">
+                            <img id="my-profile-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Leo" alt="My Avatar" class="user-profile-avatar">
+                            <div class="user-profile-info">
+                                <div id="my-profile-name" class="user-profile-name">Username</div>
+                                <div class="user-profile-role">Active Member</div>
+                            </div>
+                            <button onclick="handleLogout()" class="logout-btn" title="Log Out">✖</button>
+                        </div>
+                    </div>
+                    <!-- Rooms & Groups -->
+                    <div>
+                        <div class="section-header-row">
+                            <div class="section-title">Rooms & Groups</div>
+                            <button class="add-group-btn" onclick="openCreateGroupModal()" title="Create New Group">+</button>
+                        </div>
+                        <div class="rooms-list-container" id="rooms-list-box"></div>
+                    </div>
+                    <!-- Direct Messages -->
+                    <div>
+                        <div class="section-title">Direct Messages (<span id="online-count">0</span> online)</div>
+                        <div class="online-users-list" id="dms-list-box"></div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- CENTRAL PANEL -->
+            <main class="chat-panel">
+                <div class="chat-header">
+                    <div class="chat-header-info">
+                        <div class="chat-header-title" id="active-chat-title">Lounge Chat</div>
+                        <div class="chat-header-subtitle" id="active-chat-subtitle">Secure message stream</div>
+                    </div>
+                    <div class="chat-header-actions" id="chat-header-actions" style="display:none; gap: 10px;">
+                        <button id="manage-group-btn" class="auth-btn" style="padding: 6px 12px; font-size: 12px; border-radius: 4px;" onclick="openManageGroupModal()">Manage Members</button>
+                        <button id="leave-group-btn" class="auth-btn" style="padding: 6px 12px; font-size: 12px; border-radius: 4px; background: rgba(255,100,100,0.2); color: #ff6464; border: 1px solid #ff6464;" onclick="leaveGroup()">Leave Group</button>
+                    </div>
+                </div>
+                <div class="chat-messages-container" id="chat-box"></div>
+                <div class="chat-composer">
+                    <form class="composer-form" onsubmit="handleSendMessage(event)">
+                        <div class="composer-input-wrapper">
+                            <input type="text" id="composer-message-input" placeholder="Type a secure message..." disabled required autocomplete="off">
+                        </div>
+                        <button type="submit" id="composer-send-btn" class="composer-send-btn" disabled>Send</button>
+                    </form>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 3. GROUP CREATOR MODAL -->
+    <div id="group-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Group Chat</h2>
+                <button class="modal-close" onclick="closeCreateGroupModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="create-group-form" onsubmit="handleCreateGroup(event)">
+                    <div class="form-group">
+                        <label for="group-name-input">Group Name</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="group-name-input" placeholder="Enter group name..." required minlength="3" maxlength="20">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Members</label>
+                        <div id="group-members-select-box" class="members-select-list"></div>
+                    </div>
+                    <button type="submit" class="auth-btn" style="margin-top: 15px; width: 100%;">Create Group</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. MANAGE GROUP MODAL -->
+    <div id="manage-group-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Manage Members</h2>
+                <button class="modal-close" onclick="closeManageGroupModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="manage-group-form" onsubmit="handleUpdateGroupMembers(event)">
+                    <div class="form-group">
+                        <label>Update Members</label>
+                        <div id="manage-members-select-box" class="members-select-list"></div>
+                    </div>
+                    <button type="submit" class="auth-btn" style="margin-top: 15px; width: 100%;">Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let currentMode = 'login';
+        let selectedAvatarUrl = 'https://api.dicebear.com/7.x/bottts/svg?seed=Leo';
+        let currentUser = null;
+        let activeRoomId = 'lounge';
+        let allUsers = [];
+        let allGroups = [];
+        let onlineUsernames = new Set();
+        let unreadCounts = {};
+
+        const authView = document.getElementById('auth-view');
+        const chatView = document.getElementById('chat-view');
+        const authErrorBox = document.getElementById('auth-error-box');
+        const authForm = document.getElementById('auth-form-el');
+        const avatarWrapper = document.getElementById('avatar-selection-wrapper');
+        const authSubmitBtn = document.getElementById('auth-submit-btn');
+        const authSubtitle = document.getElementById('auth-subtitle');
+        const chatBox = document.getElementById('chat-box');
+        const messageInput = document.getElementById('composer-message-input');
+        const sendBtn = document.getElementById('composer-send-btn');
+        const myAvatarImg = document.getElementById('my-profile-avatar');
+        const myProfileName = document.getElementById('my-profile-name');
+        const onlineCount = document.getElementById('online-count');
+        const wsStatusDot = document.getElementById('ws-status-dot');
+        const banner = document.getElementById('notification-banner');
+        const bannerText = document.getElementById('notification-text');
+        const dmsListBox = document.getElementById('dms-list-box');
+        const roomsListBox = document.getElementById('rooms-list-box');
+        const activeChatTitle = document.getElementById('active-chat-title');
+        const activeChatSubtitle = document.getElementById('active-chat-subtitle');
+        const groupModal = document.getElementById('group-modal');
+        const groupMembersSelectBox = document.getElementById('group-members-select-box');
+        const groupNameInput = document.getElementById('group-name-input');
+        const manageGroupModal = document.getElementById('manage-group-modal');
+        const manageMembersSelectBox = document.getElementById('manage-members-select-box');
+
+        async function initApp() {
+            const token = localStorage.getItem('chat_token');
+            if (token) {
+                try {
+                    const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        currentUser = data.user;
+                        loadChatScreen();
+                        connectWebSocket(token);
+                        await fetchUsersAndGroups();
+                        return;
+                    }
+                } catch (e) {
+                    console.warn("Auto-login token validation failed.", e);
+                }
+            }
+            localStorage.removeItem('chat_token');
+            authView.style.display = 'flex';
+            chatView.style.display = 'none';
+        }
+
+        async function fetchUsersAndGroups() {
+            const token = localStorage.getItem('chat_token');
+            if (!token) return;
+            try {
+                const usersRes = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                const usersData = await usersRes.json();
+                if (usersRes.ok && usersData.success) allUsers = usersData.users;
+
+                const groupsRes = await fetch('/api/groups', { headers: { 'Authorization': `Bearer ${token}` } });
+                const groupsData = await groupsRes.json();
+                if (groupsRes.ok && groupsData.success) allGroups = groupsData.groups;
+
+                renderRoomsAndGroups();
+                renderDirectMessages();
+            } catch (err) {
+                console.error("Failed to fetch users or groups", err);
+            }
+        }
+
+        function switchTab(mode) {
+            currentMode = mode;
+            authErrorBox.style.display = 'none';
+            document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+            document.getElementById('tab-register').classList.toggle('active', mode === 'register');
+            if (mode === 'login') {
+                avatarWrapper.style.display = 'none';
+                authSubtitle.textContent = 'Enter credentials to join the secure lounge';
+                authSubmitBtn.textContent = 'Sign In';
+            } else {
+                avatarWrapper.style.display = 'flex';
+                authSubtitle.textContent = 'Create a new account with custom avatar presets';
+                authSubmitBtn.textContent = 'Create Account';
+            }
+        }
+
+        function selectAvatar(index) {
+            const options = document.querySelectorAll('.avatar-option');
+            options.forEach((opt, idx) => {
+                opt.classList.toggle('selected', idx === index);
+                if (idx === index) {
+                    const seed = opt.getAttribute('data-seed');
+                    selectedAvatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`;
+                }
+            });
+        }
+
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            authErrorBox.style.display = 'none';
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
+            if (!username || !password) return;
+
+            const url = currentMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+            const body = currentMode === 'login' ? { username, password } : { username, password, avatar: selectedAvatarUrl };
+
+            try {
+                authSubmitBtn.disabled = true;
+                authSubmitBtn.textContent = 'Connecting...';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Authentication server connection failed.');
+
+                localStorage.setItem('chat_token', data.token);
+                currentUser = data.user;
+                document.getElementById('auth-username').value = '';
+                document.getElementById('auth-password').value = '';
+                
+                loadChatScreen();
+                connectWebSocket(data.token);
+                await fetchUsersAndGroups();
+            } catch (err) {
+                authErrorBox.textContent = err.message;
+                authErrorBox.style.display = 'block';
+                authSubmitBtn.disabled = false;
+                authSubmitBtn.textContent = currentMode === 'login' ? 'Sign In' : 'Create Account';
+            }
+        }
+
+        function loadChatScreen() {
+            authView.style.display = 'none';
+            chatView.style.display = 'flex';
+            myProfileName.textContent = `@${currentUser.username}`;
+            myAvatarImg.src = currentUser.avatar;
+        }
+
+        function connectWebSocket(token) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUri = `${protocol}//${window.location.host}?token=${token}`;
+            wsStatusDot.className = 'pulse-dot reconnecting';
+            
+            socket = new WebSocket(wsUri);
+            socket.onopen = () => {
+                wsStatusDot.className = 'pulse-dot connected';
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                chatBox.innerHTML = '';
+                appendSystemMsg("Secure WebSocket connection encrypted and established.");
+            };
+
+            socket.onmessage = (event) => {
+                const payload = JSON.parse(event.data);
+                if (payload.type === 'system') {
+                    appendSystemMsg(payload.message);
+                } else if (payload.type === 'chat') {
+                    if (payload.roomId === activeRoomId) {
+                        appendChatMsg(payload);
+                    } else {
+                        const targetRoom = payload.roomId || 'lounge';
+                        unreadCounts[targetRoom] = (unreadCounts[targetRoom] || 0) + 1;
+                        renderRoomsAndGroups();
+                        renderDirectMessages();
+                    }
+                } else if (payload.type === 'history') {
+                    if (payload.roomId === activeRoomId) {
+                        chatBox.innerHTML = '';
+                        payload.messages.forEach(msg => appendChatMsg(msg));
+                    }
+                } else if (payload.type === 'online_list') {
+                    onlineUsernames = new Set(payload.users.map(u => u.username));
+                    onlineCount.textContent = payload.users.length;
+                    renderDirectMessages();
+                } else if (payload.type === 'notification') {
+                    triggerAlert(payload.message, payload.timestamp);
+                } else if (payload.type === 'group_created') {
+                    fetchUsersAndGroups();
+                    triggerAlert(`You were added to the group: ${payload.group.name}`, new Date());
+                } else if (payload.type === 'group_updated') {
+                    fetchUsersAndGroups().then(() => {
+                        if (activeRoomId === `group_${payload.group._id}`) switchRoom(activeRoomId);
+                    });
+                } else if (payload.type === 'user_registered') {
+                    if (!allUsers.some(u => u.username === payload.user.username)) {
+                        allUsers.push(payload.user);
+                        renderDirectMessages();
+                    }
+                }
+            };
+
+            socket.onclose = (event) => {
+                messageInput.disabled = true;
+                sendBtn.disabled = true;
+                wsStatusDot.className = 'pulse-dot';
+                if (event.code === 4001) {
+                    appendSystemMsg("Authentication expired. Please log in again.");
+                    handleLogout();
+                    return;
+                }
+                appendSystemMsg("Connection lost. Reconnecting in 3s...");
+                setTimeout(() => {
+                    const activeToken = localStorage.getItem('chat_token');
+                    if (activeToken) connectWebSocket(activeToken);
+                }, 3000);
+            };
+        }
+
+        function renderRoomsAndGroups() {
+            roomsListBox.innerHTML = '';
+            const loungeSelected = activeRoomId === 'lounge' ? 'selected' : '';
+            const unreadLounge = unreadCounts['lounge'] ? `<span class="unread-badge">${unreadCounts['lounge']}</span>` : '';
+            
+            const loungeEl = document.createElement('div');
+            loungeEl.className = `online-user-item ${loungeSelected}`;
+            loungeEl.onclick = () => switchRoom('lounge');
+            loungeEl.innerHTML = `
+                <div class="avatar-wrapper"><span class="room-icon-badge">💬</span></div>
+                <div class="online-user-name">Lounge Chat</div>
+                ${unreadLounge}
+            `;
+            roomsListBox.appendChild(loungeEl);
+
+            allGroups.forEach(group => {
+                const groupRoomId = `group_${group._id}`;
+                const isSelected = activeRoomId === groupRoomId ? 'selected' : '';
+                const unread = unreadCounts[groupRoomId] ? `<span class="unread-badge">${unreadCounts[groupRoomId]}</span>` : '';
+                const el = document.createElement('div');
+                el.className = `online-user-item ${isSelected}`;
+                el.onclick = () => switchRoom(groupRoomId);
+                const avatarHtml = group.avatar ? 
+                    `<img src="${group.avatar}" style="width:100%; height:100%; border-radius: 50%; object-fit:cover;">` : 
+                    '<span class="room-icon-badge">👥</span>';
+                el.innerHTML = `
+                    <div class="avatar-wrapper">${avatarHtml}</div>
+                    <div class="online-user-name">${group.name}</div>
+                    ${unread}
+                `;
+                roomsListBox.appendChild(el);
+            });
+        }
+
+        function renderDirectMessages() {
+            dmsListBox.innerHTML = '';
+            if (allUsers.length <= 1) {
+                dmsListBox.innerHTML = '<div class="online-user-name" style="padding: 10px; color: var(--text-muted); font-size: 12px;">No registered members</div>';
+                return;
+            }
+            const otherUsers = allUsers.filter(u => u.username !== currentUser.username);
+            otherUsers.forEach(user => {
+                const isOnline = onlineUsernames.has(user.username);
+                const dmRoomId = `dm_${[currentUser.username, user.username].sort().join('_')}`;
+                const isSelected = activeRoomId === dmRoomId ? 'selected' : '';
+                const unread = unreadCounts[dmRoomId] ? `<span class="unread-badge">${unreadCounts[dmRoomId]}</span>` : '';
+                const el = document.createElement('div');
+                el.className = `online-user-item ${isSelected}`;
+                el.onclick = () => switchRoom(dmRoomId);
+                el.innerHTML = `
+                    <div class="avatar-wrapper">
+                        <img src="${user.avatar}" alt="${user.username}" class="online-user-avatar">
+                        <span class="online-indicator ${isOnline ? 'online' : 'offline'}"></span>
+                    </div>
+                    <div class="online-user-name">${user.username}</div>
+                    ${unread}
+                `;
+                dmsListBox.appendChild(el);
+            });
+        }
+
+        function switchRoom(roomId) {
+            if (activeRoomId === roomId) return;
+            unreadCounts[roomId] = 0;
+            activeRoomId = roomId;
+
+            document.getElementById('chat-header-actions').style.display = 'none';
+
+            if (roomId === 'lounge') {
+                activeChatTitle.textContent = "Lounge Chat";
+                activeChatSubtitle.textContent = "Secure, real-time message stream";
+            } else if (roomId.startsWith('dm_')) {
+                let otherUsername = roomId.substring(3);
+                if (otherUsername.startsWith(`${currentUser.username}_`)) {
+                    otherUsername = otherUsername.substring(currentUser.username.length + 1);
+                } else if (otherUsername.endsWith(`_${currentUser.username}`)) {
+                    otherUsername = otherUsername.substring(0, otherUsername.length - currentUser.username.length - 1);
+                }
+                activeChatTitle.textContent = `@${otherUsername}`;
+                activeChatSubtitle.textContent = "Direct Message (Private & Secure)";
+            } else if (roomId.startsWith('group_')) {
+                const groupId = roomId.replace('group_', '');
+                const groupObj = allGroups.find(g => g._id === groupId);
+                if (groupObj) {
+                    const avatarHtml = groupObj.avatar ? `<img src="${groupObj.avatar}" style="width: 24px; height: 24px; border-radius: 5px; vertical-align: middle; margin-right: 8px;">` : '';
+                    activeChatTitle.innerHTML = `${avatarHtml}${groupObj.name}`;
+                    activeChatSubtitle.textContent = `${groupObj.members.length} members (Group Chat)`;
+                    
+                    document.getElementById('chat-header-actions').style.display = 'flex';
+                    document.getElementById('manage-group-btn').style.display = groupObj.creator === currentUser.username ? 'inline-block' : 'none';
+                    document.getElementById('leave-group-btn').style.display = groupObj.creator !== currentUser.username ? 'inline-block' : 'none';
+                }
+            }
+
+            renderRoomsAndGroups();
+            renderDirectMessages();
+            chatBox.innerHTML = '';
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'get_history', roomId: roomId }));
+            }
+        }
+
+        async function openCreateGroupModal() {
+            await fetchUsersAndGroups();
+            groupModal.classList.add('visible');
+            groupMembersSelectBox.innerHTML = '';
+            const otherUsers = allUsers.filter(u => u.username !== currentUser.username);
+            if (otherUsers.length === 0) {
+                groupMembersSelectBox.innerHTML = '<div style="color: var(--text-muted); padding: 10px; font-size: 13px;">No members available</div>';
+                return;
+            }
+            otherUsers.forEach(user => {
+                const item = document.createElement('div');
+                item.className = 'member-select-item';
+                item.innerHTML = `
+                    <label class="member-select-label">
+                        <input type="checkbox" name="members" value="${user.username}">
+                        <img src="${user.avatar}" class="member-select-avatar">
+                        <span class="member-select-name">${user.username}</span>
+                    </label>
+                `;
+                groupMembersSelectBox.appendChild(item);
+            });
+        }
+
+        function closeCreateGroupModal() {
+            groupModal.classList.remove('visible');
+            groupNameInput.value = '';
+        }
+
+        function openManageGroupModal() {
+            if (!activeRoomId.startsWith('group_')) return;
+            const groupId = activeRoomId.replace('group_', '');
+            const groupObj = allGroups.find(g => g._id === groupId);
+            if (!groupObj) return;
+
+            manageMembersSelectBox.innerHTML = '';
+            const otherUsers = allUsers.filter(u => u.username !== currentUser.username);
+            otherUsers.forEach(user => {
+                const isMember = groupObj.members.includes(user.username);
+                const item = document.createElement('div');
+                item.className = 'member-select-item';
+                item.innerHTML = `
+                    <label class="member-select-label">
+                        <input type="checkbox" name="manage_members" value="${user.username}" ${isMember ? 'checked' : ''}>
+                        <img src="${user.avatar}" class="member-select-avatar">
+                        <span class="member-select-name">${user.username}</span>
+                    </label>
+                `;
+                manageMembersSelectBox.appendChild(item);
+            });
+            manageGroupModal.classList.add('visible');
+        }
+
+        function closeManageGroupModal() { manageGroupModal.classList.remove('visible'); }
+
+        async function handleUpdateGroupMembers(event) {
+            event.preventDefault();
+            if (!activeRoomId.startsWith('group_')) return;
+            const groupId = activeRoomId.replace('group_', '');
+            const checked = manageMembersSelectBox.querySelectorAll('input[name="manage_members"]:checked');
+            const selectedMembers = Array.from(checked).map(c => c.value);
+            const token = localStorage.getItem('chat_token');
+
+            try {
+                const res = await fetch(`/api/groups/${groupId}/members`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ members: selectedMembers })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    closeManageGroupModal();
+                    await fetchUsersAndGroups();
+                    switchRoom(activeRoomId);
+                } else {
+                    alert(data.error || 'Failed to update members.');
+                }
+            } catch (err) {
+                alert('An error occurred during update.');
+            }
+        }
+
+        async function leaveGroup() {
+            if (!activeRoomId.startsWith('group_')) return;
+            if (!confirm('Are you sure you want to leave this group chat?')) return;
+            const groupId = activeRoomId.replace('group_', '');
+            const token = localStorage.getItem('chat_token');
+
+            try {
+                const res = await fetch(`/api/groups/${groupId}/leave`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    await fetchUsersAndGroups();
+                    switchRoom('lounge');
+                } else {
+                    alert(data.error || 'Failed to leave group.');
+                }
+            } catch (err) {
+                alert('An error occurred while leaving.');
+            }
+        }
+
+        async function handleCreateGroup(event) {
+            event.preventDefault();
+            const name = groupNameInput.value.trim();
+            if (!name) return;
+            const checked = groupMembersSelectBox.querySelectorAll('input[name="members"]:checked');
+            const selectedMembers = Array.from(checked).map(c => c.value);
+
+            if (selectedMembers.length === 0) {
+                alert('Please select at least one member.');
+                return;
+            }
+            const token = localStorage.getItem('chat_token');
+            try {
+                const res = await fetch('/api/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ name, members: selectedMembers })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    closeCreateGroupModal();
+                    await fetchUsersAndGroups();
+                    switchRoom(`group_${data.group._id}`);
+                } else {
+                    alert(data.error || 'Failed to create group.');
+                }
+            } catch (err) {
+                alert('An error occurred.');
+            }
+        }
+
+        function appendSystemMsg(msg) {
+            const el = document.createElement('div');
+            el.className = 'msg-system';
+            el.textContent = msg;
+            chatBox.appendChild(el);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendChatMsg(payload) {
+            const el = document.createElement('div');
+            const isMe = payload.username === currentUser.username;
+            el.className = `msg-wrapper ${isMe ? 'me' : 'other'}`;
+
+            const rawTime = new Date(payload.timestamp);
+            const formattedTime = isNaN(rawTime) ? 'Recent' : rawTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            el.innerHTML = `
+                <img src="${payload.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + payload.username}" alt="${payload.username}" class="msg-avatar">
+                <div class="msg-body-wrapper">
+                    <div class="msg-meta">
+                        <span class="msg-sender">${payload.username}</span>
+                        <span class="msg-time">${formattedTime}</span>
+                    </div>
+                    <div class="msg-bubble">
+                        <span class="msg-text-content"></span>
+                    </div>
+                </div>
+            `;
+            // Secure strict XSS mapping injection guard
+            el.querySelector('.msg-text-content').textContent = payload.message;
+            chatBox.appendChild(el);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function handleSendMessage(event) {
+            event.preventDefault();
+            const text = messageInput.value.trim();
+            if (!text || !socket || socket.readyState !== WebSocket.OPEN) return;
+            socket.send(JSON.stringify({ roomId: activeRoomId, message: text }));
+            messageInput.value = '';
+        }
+
+        async function handleLogout() {
+            try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+            if (socket) socket.close();
+            localStorage.removeItem('chat_token');
+            currentUser = null;
+            activeRoomId = 'lounge';
+            unreadCounts = {};
+            document.getElementById('auth-username').value = '';
+            document.getElementById('auth-password').value = '';
+            authSubmitBtn.disabled = false;
+            authSubmitBtn.textContent = 'Sign In';
+            switchTab('login');
+            authView.style.display = 'flex';
+            chatView.style.display = 'none';
+        }
+
+        function triggerAlert(message, time) {
+            const rawTime = new Date(time);
+            const formattedTime = isNaN(rawTime) ? 'Now' : rawTime.toLocaleTimeString();
+            bannerText.innerHTML = `<strong>Lounge Broadcast [${formattedTime}]:</strong> <span id="banner-text-val"></span>`;
+            bannerText.querySelector('#banner-text-val').textContent = message;
+            banner.className = 'visible';
+            setTimeout(closeNotification, 8000);
+        }
+
+        function closeNotification() { banner.className = ''; }
+
+        initApp();
+    </script>
+</body>
+</html>
